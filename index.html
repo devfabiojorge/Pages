@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Leitor de XML - Completo</title>
+
+<!-- SheetJS para exportar XLSX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+    :root {
+        --primary: rgb(255, 0, 127);
+        --bg: #f7f7f7;
+        --text: #333;
+        --table-bg: white;
+    }
+    body.dark {
+        --bg: #1e1e1e;
+        --text: #e5e5e5;
+        --table-bg: #2c2c2c;
+    }
+
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 30px;
+        transition: 0.3s;
+    }
+
+    h2 {
+        color: var(--primary);
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .upload-area {
+        padding: 15px;
+        background: var(--table-bg);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 5px solid var(--primary);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--table-bg);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    th {
+        background: var(--primary);
+        color: white;
+        padding: 8px;
+        position: relative;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    td {
+        padding: 8px;
+        border: 1px solid #ccc;
+        text-align: center;
+        color: var(--text);
+    }
+
+    th input {
+        margin-top: 5px;
+        width: 90%;
+        padding: 4px;
+        border-radius: 4px;
+        border: 1px solid #aaa;
+        font-size: 11px;
+    }
+
+    button {
+        background: var(--primary);
+        color: white;
+        padding: 10px 18px;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+
+    button:hover {
+        background: rgb(200,0,100);
+    }
+
+    .dark-toggle {
+        float: right;
+        margin-top: -45px;
+    }
+</style>
+</head>
+<body>
+
+<h2>Leitor de XML – CST por Item (versão completa)</h2>
+
+<button class="dark-toggle" onclick="toggleDark()">🌙 / ☀️</button>
+
+<div class="upload-area">
+    <input type="file" id="xmlInput" multiple accept=".xml">
+    <button onclick="processXMLs()">Processar XMLs</button>
+</div>
+
+<table id="resultTable" style="display:none;">
+    <thead>
+        <tr>
+            <th onclick="ordenarTabela(0)">Arquivo<br><input type="text" onkeyup="filtrarTabela(0)" placeholder="Texto, múltiplos, intervalo"></th>
+            <th onclick="ordenarTabela(1)">Item<br><input type="text" onkeyup="filtrarTabela(1)" placeholder="Ex: 1,2,3 ou 1-10"></th>
+            <th onclick="ordenarTabela(2)">Produto (xProd)<br><input type="text" onkeyup="filtrarTabela(2)"></th>
+            <th onclick="ordenarTabela(3)">ICMS<br><input type="text" onkeyup="filtrarTabela(3)"></th>
+            <th onclick="ordenarTabela(4)">IPI<br><input type="text" onkeyup="filtrarTabela(4)"></th>
+            <th onclick="ordenarTabela(5)">PIS<br><input type="text" onkeyup="filtrarTabela(5)"></th>
+            <th onclick="ordenarTabela(6)">COFINS<br><input type="text" onkeyup="filtrarTabela(6)"></th>
+            <th onclick="ordenarTabela(7)">vBCST<br><input type="text" onkeyup="filtrarTabela(7)" placeholder="Ex: Não existe ou 0-100"></th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<button id="downloadBtn" style="display:none;" onclick="downloadCSV()">Exportar CSV</button>
+<button id="xlsxBtn" style="display:none;" onclick="downloadXLSX()">Exportar XLSX</button>
+
+<script>
+let ordemCrescente = {};
+
+function toggleDark() {
+    document.body.classList.toggle("dark");
+}
+
+function processXMLs() {
+    const files = document.getElementById("xmlInput").files;
+    if (!files.length) return alert("Selecione XMLs");
+
+    const table = document.getElementById("resultTable");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
+    table.style.display = "table";
+
+    const resultados = [];
+
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const xml = new DOMParser().parseFromString(e.target.result, "text/xml");
+
+            Array.from(xml.getElementsByTagName("det")).forEach(det => {
+
+                const nItem = det.getAttribute("nItem") || "";
+                const prod = det.getElementsByTagName("prod")[0];
+                const xProd = prod ? prod.getElementsByTagName("xProd")[0]?.textContent.trim() : "";
+
+                const imposto = det.getElementsByTagName("imposto")[0];
+
+                let ICMS = "", IPI = "", PIS = "", COFINS = "", vBCST = "Não existe";
+
+                if (imposto) {
+                    const icms = imposto.getElementsByTagName("ICMS")[0];
+                    if (icms) {
+                        ICMS = Array.from(icms.getElementsByTagName("CST")).map(n => n.textContent.trim()).join(", ");
+                        const vb = icms.getElementsByTagName("vBCST")[0];
+                        if (vb) vBCST = vb.textContent.trim();
+                    }
+                    const ipi = imposto.getElementsByTagName("IPI")[0];
+                    if (ipi) IPI = Array.from(ipi.getElementsByTagName("CST")).map(n => n.textContent.trim()).join(", ");
+
+                    const pis = imposto.getElementsByTagName("PIS")[0];
+                    if (pis) PIS = Array.from(pis.getElementsByTagName("CST")).map(n => n.textContent.trim()).join(", ");
+
+                    const cof = imposto.getElementsByTagName("COFINS")[0];
+                    if (cof) COFINS = Array.from(cof.getElementsByTagName("CST")).map(n => n.textContent.trim()).join(", ");
+                }
+
+                const linha = { arquivo: file.name, item: nItem, xProd, ICMS, IPI, PIS, COFINS, vBCST };
+                resultados.push(linha);
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${linha.arquivo}</td>
+                    <td>${linha.item}</td>
+                    <td>${linha.xProd}</td>
+                    <td>${linha.ICMS}</td>
+                    <td>${linha.IPI}</td>
+                    <td>${linha.PIS}</td>
+                    <td>${linha.COFINS}</td>
+                    <td>${linha.vBCST}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            window.resultadosGlobais = resultados;
+            document.getElementById("downloadBtn").style.display = "inline-block";
+            document.getElementById("xlsxBtn").style.display = "inline-block";
+        };
+        reader.readAsText(file);
+    });
+}
+
+function filtrarTabela(col) {
+    const table = document.getElementById("resultTable");
+    const value = table.getElementsByTagName("input")[col].value.toLowerCase();
+    const rows = table.tBodies[0].rows;
+
+    const termos = value.split(",").map(t => t.trim());
+
+    for (let row of rows) {
+        const cellText = row.cells[col].textContent.toLowerCase();
+        let exibir = false;
+
+        termos.forEach(cond => {
+            if (!cond) return;
+
+            if (cond.includes("-")) {
+                const [min, max] = cond.split("-").map(Number);
+                const num = Number(cellText);
+                if (num >= min && num <= max) exibir = true;
+            } else if (cellText.includes(cond)) {
+                exibir = true;
+            }
+        });
+
+        row.style.display = exibir || !value ? "" : "none";
+    }
+}
+
+function ordenarTabela(col) {
+    const table = document.getElementById("resultTable");
+    const tbody = table.tBodies[0];
+    const rows = Array.from(tbody.rows);
+
+    const asc = !ordemCrescente[col];
+    ordemCrescente[col] = asc;
+
+    rows.sort((a, b) => {
+        const A = a.cells[col].textContent.toLowerCase();
+        const B = b.cells[col].textContent.toLowerCase();
+
+        return asc ? A.localeCompare(B, "pt-BR") : B.localeCompare(A, "pt-BR");
+    });
+
+    rows.forEach(r => tbody.appendChild(r));
+}
+
+function downloadCSV() {
+    const dados = window.resultadosGlobais;
+    let csv = "Arquivo;Item;xProd;ICMS;IPI;PIS;COFINS;vBCST\n";
+    dados.forEach(d => {
+        csv += `${d.arquivo};${d.item};${d.xProd};${d.ICMS};${d.IPI};${d.PIS};${d.COFINS};${d.vBCST}\n`;
+    });
+
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "resultado.csv";
+    link.click();
+}
+
+function downloadXLSX() {
+    const dados = window.resultadosGlobais;
+
+    const ws = XLSX.utils.json_to_sheet(dados);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Resultado");
+
+    XLSX.writeFile(wb, "resultado.xlsx");
+}
+</script>
+
+</body>
+</html>
