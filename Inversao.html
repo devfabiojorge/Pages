@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de Invers&atilde;o Aprimorado</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        .game-container {
+            display: flex;
+            margin: 20px 0;
+            background-color: #34495e;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .hole {
+            width: 70px;
+            height: 70px;
+            border: 3px solid #2c3e50;
+            border-radius: 50%;
+            margin: 0 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            background-color: #ecf0f1;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .hole:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        .ball {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .yellow {
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            border: 2px solid #d35400;
+        }
+        .blue {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            border: 2px solid #1a5276;
+        }
+        .empty {
+            background-color: #bdc3c7;
+        }
+        .selected {
+            box-shadow: 0 0 15px 5px rgba(46, 204, 113, 0.7);
+            transform: scale(1.05);
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #resetBtn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        #resetBtn:hover {
+            background-color: #c0392b;
+        }
+        #hintBtn {
+            background-color: #3498db;
+            color: white;
+        }
+        #hintBtn:hover {
+            background-color: #2980b9;
+        }
+        .info-panel {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            max-width: 600px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .move-counter {
+            font-weight: bold;
+            margin: 10px 0;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        .rules {
+            margin-top: 15px;
+        }
+        .rules h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 5px;
+        }
+        .rules ul {
+            padding-left: 20px;
+        }
+        .rules li {
+            margin-bottom: 8px;
+        }
+        .victory-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(46, 204, 113, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            display: none;
+        }
+        .victory-message h2 {
+            margin-top: 0;
+        }
+        .close-message {
+            background-color: white;
+            color: #27ae60;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jogo de Invers&atilde;o Aprimorado</h1>
+    <div class="subtitle">Troque as posi&ccedil;&otilde;es das bolinhas amarelas e azuis</div>
+    
+    <div class="move-counter">Movimentos: <span id="moves">0</span></div>
+    <div class="game-container" id="gameBoard"></div>
+    
+    <div class="controls">
+        <button id="resetBtn">Reiniciar Jogo</button>
+        <button id="hintBtn">Dica</button>
+    </div>
+    
+    <div class="info-panel">
+        <div class="status" id="status">Selecione uma bolinha para iniciar</div>
+        
+        <div class="rules">
+            <h3>Regras do Jogo:</h3>
+            <ul>
+                <li><strong>Bolinhas amarelas</strong> s&oacute; podem se mover para a direita</li>
+                <li><strong>Bolinhas azuis</strong> s&oacute; podem se mover para a esquerda</li>
+                <li>Voc&ecirc; pode mover para um espa&ccedil;o vazio <strong>adjacente</strong> ou <strong>pular sobre uma pe&ccedil;a</strong> (de qualquer cor)</li>
+                <li><strong>N&atilde;o &eacute; permitido:</strong>
+                    <ul>
+                        <li>Retroceder (mover em dire&ccedil;&atilde;o à posi&ccedil;&atilde;o original)</li>
+                        <li>Pular sobre duas pe&ccedil;as seguidas</li>
+                        <li>Fazer movimentos inválidos</li>
+                    </ul>
+                </li>
+                <li><strong>Objetivo:</strong> Trocar as posi&ccedil;&otilde;es das bolinhas amarelas e azuis</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="victory-message" id="victoryMessage">
+        <h2>Parab&eacute;ns! &#127881;</h2>
+        <p>Voc&ecirc; completou o jogo em <span id="finalMoves">0</span> movimentos!</p>
+        <p id="performanceComment"></p>
+        <button class="close-message" id="closeMessage">Fechar</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const gameBoard = document.getElementById('gameBoard');
+            const resetBtn = document.getElementById('resetBtn');
+            const hintBtn = document.getElementById('hintBtn');
+            const movesDisplay = document.getElementById('moves');
+            const statusDisplay = document.getElementById('status');
+            const victoryMessage = document.getElementById('victoryMessage');
+            const finalMovesDisplay = document.getElementById('finalMoves');
+            const performanceComment = document.getElementById('performanceComment');
+            const closeMessageBtn = document.getElementById('closeMessage');
+            
+            // Estado inicial do jogo
+            let state = ['A', 'A', 'A', 'V', 'Z', 'Z', 'Z'];
+            let emptyIndex = 3;
+            let moves = 0;
+            let selectedBall = null;
+            let lastMove = null;
+            let gameHistory = [];
+            
+            // Inicializa o jogo
+            initGame();
+            
+            function initGame() {
+                state = ['A', 'A', 'A', 'V', 'Z', 'Z', 'Z'];
+                emptyIndex = 3;
+                moves = 0;
+                selectedBall = null;
+                lastMove = null;
+                gameHistory = [];
+                updateStatus('Selecione uma bolinha para come&ccedil;ar');
+                renderBoard();
+            }
+            
+            function renderBoard() {
+                gameBoard.innerHTML = '';
+                movesDisplay.textContent = moves;
+                
+                state.forEach((cell, index) => {
+                    const hole = document.createElement('div');
+                    hole.className = 'hole';
+                    hole.dataset.index = index;
+                    
+                    if (cell === 'A') {
+                        const ball = document.createElement('div');
+                        ball.className = 'ball yellow';
+                        hole.appendChild(ball);
+                    } else if (cell === 'Z') {
+                        const ball = document.createElement('div');
+                        ball.className = 'ball blue';
+                        hole.appendChild(ball);
+                    } else {
+                        hole.className += ' empty';
+                    }
+                    
+                    if (index === selectedBall) {
+                        hole.classList.add('selected');
+                    }
+                    
+                    hole.addEventListener('click', () => handleClick(index));
+                    gameBoard.appendChild(hole);
+                });
+            }
+            
+            function handleClick(index) {
+                // Se nenhuma bola está selecionada, tentar selecionar
+                if (selectedBall === null) {
+                    trySelectBall(index);
+                } 
+                // Se já tem uma bola selecionada, tentar mover
+                else {
+                    tryMoveBall(index);
+                }
+            }
+            
+            function trySelectBall(index) {
+                // S&oacute; pode selecionar bolas (n&atilde;o vazio)
+                if (state[index] !== 'V') {
+                    // Verificar se a bola pode se mover
+                    const possibleMoves = getPossibleMoves(index);
+                    if (possibleMoves.length > 0) {
+                        selectedBall = index;
+                        updateStatus(`Bolinha ${state[index] === 'A' ? 'amarela' : 'azul'} selecionada. Escolha um destino.`);
+                        renderBoard();
+                    } else {
+                        updateStatus('Esta bolinha n&atilde;o pode se mover no momento. Tente outra.');
+                    }
+                }
+            }
+            
+            function tryMoveBall(targetIndex) {
+                // S&oacute; pode mover para o vazio
+                if (state[targetIndex] === 'V') {
+                    const moveType = validateMove(selectedBall, targetIndex);
+                    
+                    if (moveType !== 'invalid') {
+                        // Registrar no hist&oacute;rico antes de mover
+                        gameHistory.push({
+                            state: [...state],
+                            move: {from: selectedBall, to: targetIndex, type: moveType},
+                            emptyIndex: emptyIndex
+                        });
+                        
+                        // Fazer o movimento
+                        state[targetIndex] = state[selectedBall];
+                        state[selectedBall] = 'V';
+                        lastMove = {from: selectedBall, to: targetIndex};
+                        emptyIndex = selectedBall;
+                        moves++;
+                        
+                        // Verificar vit&oacute;ria
+                        if (checkVictory()) {
+                            showVictoryMessage();
+                        } else {
+                            updateStatus(`Movimento realizado! Selecione outra bolinha.`);
+                        }
+                    } else {
+                        updateStatus('Movimento inválido! Tente novamente.');
+                    }
+                } else {
+                    updateStatus('Voc&ecirc; deve selecionar um espa&ccedil;o vazio para mover.');
+                }
+                
+                // Resetar sele&ccedil;&atilde;o independentemente do resultado
+                selectedBall = null;
+                renderBoard();
+            }
+            
+            function getPossibleMoves(index) {
+                const moves = [];
+                const piece = state[index];
+                const direction = piece === 'A' ? 1 : -1; // Amarelas para direita, azuis para esquerda
+                
+                // Movimento adjacente
+                const adjacent = index + direction;
+                if (adjacent >= 0 && adjacent < state.length && state[adjacent] === 'V') {
+                    moves.push({to: adjacent, type: 'adjacent'});
+                }
+                
+                // Movimento pulando uma pe&ccedil;a
+                const jump = index + 2 * direction;
+                if (jump >= 0 && jump < state.length && state[jump] === 'V' && state[index + direction] !== 'V') {
+                    // Verifica se n&atilde;o está retrocedendo
+                    const isNotBackward = (piece === 'A' && jump > index) || (piece === 'Z' && jump < index);
+                    if (isNotBackward) {
+                        moves.push({to: jump, type: 'jump'});
+                    }
+                }
+                
+                return moves;
+            }
+            
+            function validateMove(from, to) {
+                const piece = state[from];
+                const direction = piece === 'A' ? 1 : -1;
+                const diff = to - from;
+                
+                // Verificar dire&ccedil;&atilde;o correta
+                if ((piece === 'A' && diff <= 0) || (piece === 'Z' && diff >= 0)) {
+                    return 'invalid';
+                }
+                
+                // Movimento adjacente
+                if (Math.abs(diff) === 1) {
+                    return 'adjacent';
+                }
+                
+                // Movimento pulando (diferen&ccedil;a de 2)
+                if (Math.abs(diff) === 2) {
+                    // Verificar se há uma pe&ccedil;a no meio para pular
+                    const middle = from + direction;
+                    if (state[middle] !== 'V') {
+                        return 'jump';
+                    }
+                }
+                
+                return 'invalid';
+            }
+            
+            function checkVictory() {
+                // Verifica se as bolinhas azuis est&atilde;o nas posi&ccedil;&otilde;es iniciais das amarelas e vice-versa
+                return state[0] === 'Z' && state[1] === 'Z' && state[2] === 'Z' &&
+                       state[4] === 'A' && state[5] === 'A' && state[6] === 'A' &&
+                       state[3] === 'V';
+            }
+            
+            function showVictoryMessage() {
+                finalMovesDisplay.textContent = moves;
+                
+                // Comentário sobre desempenho
+                if (moves <= 15) {
+                    performanceComment.textContent = 'Excelente! Voce; encontrou uma solucao muito eficiente!';
+                } else if (moves <= 25) {
+                    performanceComment.textContent = 'Bom trabalho! Voc&ecirc; resolveu o jogo com uma boa estrat&eacute;gia.';
+                } else {
+                    performanceComment.textContent = 'Voc&ecirc; conseguiu! Tente novamente para melhorar seu número de movimentos.';
+                }
+                
+                victoryMessage.style.display = 'block';
+            }
+            
+            function updateStatus(message) {
+                statusDisplay.textContent = message;
+            }
+            
+            // Event listeners
+            resetBtn.addEventListener('click', initGame);
+            
+            hintBtn.addEventListener('click', function() {
+                if (selectedBall !== null) {
+                    const possibleMoves = getPossibleMoves(selectedBall);
+                    if (possibleMoves.length > 0) {
+                        const move = possibleMoves[0];
+                        gameBoard.children[move.to].classList.add('pulse');
+                        setTimeout(() => {
+                            gameBoard.children[move.to].classList.remove('pulse');
+                        }, 2000);
+                        updateStatus(`Dica: Voc&ecirc; pode mover para a posi&ccedil;&atilde;o ${move.to + 1}`);
+                    }
+                } else {
+                    // Encontrar uma pe&ccedil;a que pode se mover
+                    for (let i = 0; i < state.length; i++) {
+                        if (state[i] !== 'V' && getPossibleMoves(i).length > 0) {
+                            gameBoard.children[i].classList.add('pulse');
+                            setTimeout(() => {
+                                gameBoard.children[i].classList.remove('pulse');
+                            }, 2000);
+                            updateStatus(`Dica: Tente selecionar a bolinha na posi&ccedil;&atilde;o ${i + 1}`);
+                            return;
+                        }
+                    }
+                    updateStatus('Nenhuma dica dispon&iacute;vel no momento.');
+                }
+            });
+            
+            closeMessageBtn.addEventListener('click', function() {
+                victoryMessage.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
